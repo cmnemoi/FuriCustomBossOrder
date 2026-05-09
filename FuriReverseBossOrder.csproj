@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+  <Reference Include="BepInEx">
+    <HintPath>../refs/BepInEx.dll</HintPath>
+  </Reference>
+  <Reference Include="0Harmony">
+    <HintPath>../refs/0Harmony.dll</HintPath>
+  </Reference>
+  <Reference Include="Assembly-CSharp">
+    <HintPath>../refs/Assembly-CSharp.dll</HintPath>
+  </Reference>
+  <Reference Include="UnityEngine">
+    <HintPath>../refs/UnityEngine.dll</HintPath>
+  </Reference>
+  <Reference Include="UnityEngine.CoreModule">
+    <HintPath>../refs/UnityEngine.CoreModule.dll</HintPath>
+  </Reference>
+</ItemGroup>
+
+</Project>

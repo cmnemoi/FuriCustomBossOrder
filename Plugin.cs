@@ -23,17 +23,32 @@ internal enum SpeedrunMenuMode
     Onnamusha,
     ClassicReverse,
     OnnamushaReverse,
+    ClassicRandom,
+    OnnamushaRandom,
+}
+
+internal enum CustomSpeedrunOrderMode
+{
+    None,
+    Reverse,
+    Random,
 }
 
 internal static class ReverseSpeedrunModeState
 {
     private static readonly AccessTools.FieldRef<SpeedrunMenu, bool> DlcBoughtRef = AccessTools.FieldRefAccess<SpeedrunMenu, bool>("dlcBought");
 
-    private static bool pendingReverseRun;
+    private static CustomSpeedrunOrderMode pendingCustomMode;
+
+    private static readonly List<LevelDescription> currentRunOrder = new List<LevelDescription>();
 
     public static SpeedrunMenuMode SelectedMenuMode { get; private set; }
 
-    public static bool ReverseRunActive { get; private set; }
+    public static CustomSpeedrunOrderMode ActiveCustomMode { get; private set; }
+
+    public static bool CustomRunActive => ActiveCustomMode != CustomSpeedrunOrderMode.None;
+
+    public static IList<LevelDescription> CurrentRunOrder => currentRunOrder;
 
     public static void ConfigureSpeedrunMenu(SpeedrunMenu menu)
     {
@@ -69,39 +84,63 @@ internal static class ReverseSpeedrunModeState
         SpeedrunMenuMode mode = GetMode(index, dlcBought);
         SelectedMenuMode = mode;
         menu.SetCharacter(IsOnnamusha(mode));
+        UnitySingleton<GlobalGameManager>.Instance.IsMenuInOnnamusha = IsOnnamusha(mode);
     }
 
     public static void UpdateSelectionFromIndex(int index)
     {
         bool dlcBought = UnitySingleton<SocialManager>.Instance.GetOnnamushaDLCState() == DLCState.BOUGHT;
         SelectedMenuMode = GetMode(index, dlcBought);
+        UnitySingleton<GlobalGameManager>.Instance.IsMenuInOnnamusha = IsOnnamusha(SelectedMenuMode);
     }
 
     public static void PrepareSpeedrunStart()
     {
-        pendingReverseRun = IsReverse(SelectedMenuMode);
+        pendingCustomMode = GetCustomMode(SelectedMenuMode);
     }
 
-    public static bool BeginRun(bool onnamusha)
+    public static bool BeginRun(GlobalGameManager manager, GameDifficulty difficulty, bool onnamusha)
     {
-        ReverseRunActive = pendingReverseRun;
-        pendingReverseRun = false;
-        if (ReverseRunActive)
+        CustomSpeedrunOrderMode modeToUse = (pendingCustomMode != CustomSpeedrunOrderMode.None) ? pendingCustomMode : ActiveCustomMode;
+        pendingCustomMode = CustomSpeedrunOrderMode.None;
+
+        if (modeToUse == CustomSpeedrunOrderMode.None)
         {
-            SelectedMenuMode = onnamusha ? SpeedrunMenuMode.OnnamushaReverse : SpeedrunMenuMode.ClassicReverse;
+            return false;
         }
-        return ReverseRunActive;
+
+        bool preserveExistingOrder = ActiveCustomMode == modeToUse
+            && modeToUse == CustomSpeedrunOrderMode.Reverse
+            && currentRunOrder.Count > 0;
+        ActiveCustomMode = modeToUse;
+
+        if (!preserveExistingOrder)
+        {
+            currentRunOrder.Clear();
+            currentRunOrder.AddRange(BuildOrder(manager, difficulty, ActiveCustomMode));
+        }
+
+        SelectedMenuMode = ActiveCustomMode switch
+        {
+            CustomSpeedrunOrderMode.Reverse => onnamusha ? SpeedrunMenuMode.OnnamushaReverse : SpeedrunMenuMode.ClassicReverse,
+            CustomSpeedrunOrderMode.Random => onnamusha ? SpeedrunMenuMode.OnnamushaRandom : SpeedrunMenuMode.ClassicRandom,
+            _ => SelectedMenuMode,
+        };
+        return true;
     }
 
     public static void ClearRun()
     {
-        pendingReverseRun = false;
-        ReverseRunActive = false;
+        pendingCustomMode = CustomSpeedrunOrderMode.None;
+        ActiveCustomMode = CustomSpeedrunOrderMode.None;
+        currentRunOrder.Clear();
     }
 
     public static bool IsOnnamusha(SpeedrunMenuMode mode)
     {
-        return mode == SpeedrunMenuMode.Onnamusha || mode == SpeedrunMenuMode.OnnamushaReverse;
+        return mode == SpeedrunMenuMode.Onnamusha
+            || mode == SpeedrunMenuMode.OnnamushaReverse
+            || mode == SpeedrunMenuMode.OnnamushaRandom;
     }
 
     private static bool IsReverse(SpeedrunMenuMode mode)
@@ -109,11 +148,31 @@ internal static class ReverseSpeedrunModeState
         return mode == SpeedrunMenuMode.ClassicReverse || mode == SpeedrunMenuMode.OnnamushaReverse;
     }
 
+    private static bool IsRandom(SpeedrunMenuMode mode)
+    {
+        return mode == SpeedrunMenuMode.ClassicRandom || mode == SpeedrunMenuMode.OnnamushaRandom;
+    }
+
+    private static CustomSpeedrunOrderMode GetCustomMode(SpeedrunMenuMode mode)
+    {
+        if (IsReverse(mode))
+        {
+            return CustomSpeedrunOrderMode.Reverse;
+        }
+
+        return IsRandom(mode) ? CustomSpeedrunOrderMode.Random : CustomSpeedrunOrderMode.None;
+    }
+
     private static int GetSelectionIndex(bool dlcBought)
     {
         if (!dlcBought)
         {
-            return SelectedMenuMode == SpeedrunMenuMode.ClassicReverse ? 1 : 0;
+            return SelectedMenuMode switch
+            {
+                SpeedrunMenuMode.ClassicReverse => 1,
+                SpeedrunMenuMode.ClassicRandom => 2,
+                _ => 0,
+            };
         }
 
         return SelectedMenuMode switch
@@ -122,6 +181,8 @@ internal static class ReverseSpeedrunModeState
             SpeedrunMenuMode.Onnamusha => 1,
             SpeedrunMenuMode.ClassicReverse => 2,
             SpeedrunMenuMode.OnnamushaReverse => 3,
+            SpeedrunMenuMode.ClassicRandom => 4,
+            SpeedrunMenuMode.OnnamushaRandom => 5,
             _ => 0,
         };
     }
@@ -130,7 +191,12 @@ internal static class ReverseSpeedrunModeState
     {
         if (!dlcBought)
         {
-            return index == 1 ? SpeedrunMenuMode.ClassicReverse : SpeedrunMenuMode.Classic;
+            return index switch
+            {
+                1 => SpeedrunMenuMode.ClassicReverse,
+                2 => SpeedrunMenuMode.ClassicRandom,
+                _ => SpeedrunMenuMode.Classic,
+            };
         }
 
         return index switch
@@ -138,6 +204,8 @@ internal static class ReverseSpeedrunModeState
             1 => SpeedrunMenuMode.Onnamusha,
             2 => SpeedrunMenuMode.ClassicReverse,
             3 => SpeedrunMenuMode.OnnamushaReverse,
+            4 => SpeedrunMenuMode.ClassicRandom,
+            5 => SpeedrunMenuMode.OnnamushaRandom,
             _ => SpeedrunMenuMode.Classic,
         };
     }
@@ -148,22 +216,26 @@ internal static class ReverseSpeedrunModeState
         string classic = GetLocalizedText("UI_GAMESLOT_CHARACTER_CLASSIC", language, "Classic");
         string onnamusha = GetLocalizedText("UI_GAMESLOT_CHARACTER_ONNAMUSHA", language, "Onnamusha");
         string reverse = GetReverseSuffix(language);
+        string random = GetRandomSuffix(language);
 
         if (!dlcBought)
         {
-            return new string[2]
+            return new string[3]
             {
                 classic,
-                String.Concat(classic, " ", reverse)
+                String.Concat(classic, " ", reverse),
+                String.Concat(classic, " ", random)
             };
         }
 
-        return new string[4]
+        return new string[6]
         {
             classic,
             onnamusha,
             String.Concat(classic, " ", reverse),
-            String.Concat(onnamusha, " ", reverse)
+            String.Concat(onnamusha, " ", reverse),
+            String.Concat(classic, " ", random),
+            String.Concat(onnamusha, " ", random)
         };
     }
 
@@ -204,11 +276,86 @@ internal static class ReverseSpeedrunModeState
             _ => "Reverse",
         };
     }
+
+    private static string GetRandomSuffix(string language)
+    {
+        return language switch
+        {
+            "FR" => "Aléatoire",
+            "DE" => "Zufällig",
+            "ES" => "Aleatorio",
+            "IT" => "Casuale",
+            "PO" => "Losowy",
+            "RU" => "Случайный",
+            "JA" => "ランダム",
+            "ZH_HANS" => "随机",
+            "KO" => "랜덤",
+            _ => "Random",
+        };
+    }
+
+    private static List<LevelDescription> BuildOrder(GlobalGameManager manager, GameDifficulty difficulty, CustomSpeedrunOrderMode mode)
+    {
+        List<LevelDescription> order = new List<LevelDescription>();
+        if (manager == null || manager._levels == null || manager._levels._levels == null)
+        {
+            return order;
+        }
+
+        LevelDescription[] levels = manager._levels._levels;
+        for (int i = 0; i < levels.Length; i++)
+        {
+            if (IsLevelInSpeedrun(levels[i], difficulty))
+            {
+                order.Add(levels[i]);
+            }
+        }
+
+        if (mode == CustomSpeedrunOrderMode.Reverse)
+        {
+            order.Reverse();
+            return order;
+        }
+
+        if (mode == CustomSpeedrunOrderMode.Random)
+        {
+            Shuffle(order);
+        }
+
+        return order;
+    }
+
+    private static bool IsLevelInSpeedrun(LevelDescription level, GameDifficulty difficulty)
+    {
+        if (level == null)
+        {
+            return false;
+        }
+
+        return difficulty switch
+        {
+            GameDifficulty.Medium => level._speedrunAvailable,
+            GameDifficulty.Hard => level._speedrunFurierAvailable,
+            _ => false,
+        };
+    }
+
+    private static void Shuffle(List<LevelDescription> order)
+    {
+        System.Random random = new System.Random();
+        for (int i = order.Count - 1; i > 0; i--)
+        {
+            int swapIndex = random.Next(i + 1);
+            LevelDescription temp = order[i];
+            order[i] = order[swapIndex];
+            order[swapIndex] = temp;
+        }
+    }
 }
 
-internal static class ReverseSpeedrunRecords
+internal static class CustomSpeedrunRecords
 {
-    private static readonly string FilePath = Path.Combine(Paths.ConfigPath, "FuriReverseBossOrder.reverse-speedruns.txt");
+    private static readonly string FilePath = Path.Combine(Paths.ConfigPath, "FuriReverseBossOrder.custom-speedruns.txt");
 
     private static readonly Dictionary<string, GlobalSpeedrunData> Records = new Dictionary<string, GlobalSpeedrunData>();
 
@@ -217,13 +364,13 @@ internal static class ReverseSpeedrunRecords
     public static bool Has(GameDifficulty difficulty, bool onnamusha)
     {
         EnsureLoaded();
-        return Records.ContainsKey(GetKey(difficulty, onnamusha));
+        return Records.ContainsKey(GetKey(ReverseSpeedrunModeState.ActiveCustomMode, difficulty, onnamusha));
     }
 
     public static GlobalSpeedrunData? Get(GameDifficulty difficulty, bool onnamusha)
     {
         EnsureLoaded();
-        if (!Records.TryGetValue(GetKey(difficulty, onnamusha), out GlobalSpeedrunData speedrunData))
+        if (!Records.TryGetValue(GetKey(ReverseSpeedrunModeState.ActiveCustomMode, difficulty, onnamusha), out GlobalSpeedrunData speedrunData))
         {
             return null;
         }
@@ -233,7 +380,7 @@ internal static class ReverseSpeedrunRecords
     public static void Set(GameDifficulty difficulty, bool onnamusha, GlobalSpeedrunData speedrunData)
     {
         EnsureLoaded();
-        Records[GetKey(difficulty, onnamusha)] = speedrunData.ToCopy();
+        Records[GetKey(ReverseSpeedrunModeState.ActiveCustomMode, difficulty, onnamusha)] = speedrunData.ToCopy();
         Save();
     }
 
@@ -299,7 +446,7 @@ internal static class ReverseSpeedrunRecords
         }
 
         List<string> lines = new List<string>();
-        lines.Add("# Reverse speedrun personal bests");
+        lines.Add("# Custom speedrun personal bests");
         foreach (KeyValuePair<string, GlobalSpeedrunData> entry in Records)
         {
             lines.Add($"[{entry.Key}]");
@@ -319,8 +466,18 @@ internal static class ReverseSpeedrunRecords
         File.WriteAllLines(FilePath, lines.ToArray());
     }
 
-    private static string GetKey(GameDifficulty difficulty, bool onnamusha)
+    private static string GetKey(CustomSpeedrunOrderMode mode, GameDifficulty difficulty, bool onnamusha)
     {
+        if (mode == CustomSpeedrunOrderMode.Reverse)
+        {
+            return String.Concat(difficulty.ToString(), "|", onnamusha ? "Onnamusha" : "Classique", "|Reverse");
+        }
+
+        if (mode == CustomSpeedrunOrderMode.Random)
+        {
+            return String.Concat(difficulty.ToString(), "|", onnamusha ? "Onnamusha" : "Classique", "|Random");
+        }
+
         return String.Concat(difficulty.ToString(), "|", onnamusha ? "Onnamusha" : "Classique");
     }
 
@@ -341,13 +498,13 @@ internal static class ReverseSpeedrunOrder
 
     public static LevelDescription? GetFirstLevel(GlobalGameManager manager, GameDifficulty difficulty)
     {
-        List<LevelDescription> order = GetOrder(manager, difficulty);
+        IList<LevelDescription> order = ReverseSpeedrunModeState.CurrentRunOrder;
         return order.Count > 0 ? order[0] : null;
     }
 
     public static LevelDescription? GetNextLevel(GlobalGameManager manager, GameDifficulty difficulty, string currentLevelId)
     {
-        List<LevelDescription> order = GetOrder(manager, difficulty);
+        IList<LevelDescription> order = ReverseSpeedrunModeState.CurrentRunOrder;
         for (int i = 0; i < order.Count - 1; i++)
         {
             if (String.Equals(order[i].ID, currentLevelId, StringComparison.Ordinal))
@@ -360,7 +517,7 @@ internal static class ReverseSpeedrunOrder
 
     public static bool IsLastLevel(GlobalGameManager manager, GameDifficulty difficulty, string currentLevelId)
     {
-        List<LevelDescription> order = GetOrder(manager, difficulty);
+        IList<LevelDescription> order = ReverseSpeedrunModeState.CurrentRunOrder;
         if (order.Count == 0)
         {
             return false;
@@ -428,6 +585,8 @@ internal static class ReverseSpeedrunOrder
         }
 
         CurrentGameModeRef(manager) = GameMode.Speedrun;
+        manager.IsMenuInOnnamusha = onnamusha;
+        Tweakables.instance.debugSettings.useFemaleMC = onnamusha;
         GameDataInfo gameData = new GameDataInfo();
         gameData._currentGameState = GameState.Arena;
         gameData._currentLevel = firstLevel.ID;
@@ -486,48 +645,12 @@ internal static class ReverseSpeedrunOrder
 
         GlobalGameManager manager = UnitySingleton<GlobalGameManager>.Instance;
         GameDataInfo currentGameData = manager.CurrentGameData;
-        if (!ReverseSpeedrunModeState.ReverseRunActive || manager.CurrentGameMode != GameMode.Speedrun || currentGameData == null)
+        if (!ReverseSpeedrunModeState.CustomRunActive || manager.CurrentGameMode != GameMode.Speedrun || currentGameData == null)
         {
             return new List<LevelDescription>();
         }
 
-        return GetOrder(manager, currentGameData._gameDifficulty);
-    }
-
-    private static List<LevelDescription> GetOrder(GlobalGameManager manager, GameDifficulty difficulty)
-    {
-        List<LevelDescription> order = new List<LevelDescription>();
-        if (manager == null || manager._levels == null || manager._levels._levels == null)
-        {
-            return order;
-        }
-
-        LevelDescription[] levels = manager._levels._levels;
-        for (int i = levels.Length - 1; i >= 0; i--)
-        {
-            LevelDescription level = levels[i];
-            if (IsLevelInSpeedrun(level, difficulty))
-            {
-                order.Add(level);
-            }
-        }
-
-        return order;
-    }
-
-    private static bool IsLevelInSpeedrun(LevelDescription level, GameDifficulty difficulty)
-    {
-        if (level == null)
-        {
-            return false;
-        }
-
-        return difficulty switch
-        {
-            GameDifficulty.Medium => level._speedrunAvailable,
-            GameDifficulty.Hard => level._speedrunFurierAvailable,
-            _ => false,
-        };
+        return new List<LevelDescription>(ReverseSpeedrunModeState.CurrentRunOrder);
     }
 
 }
@@ -579,7 +702,7 @@ internal static class GlobalGameManagerStartSpeedrunPatch
 {
     private static bool Prefix(GlobalGameManager __instance, GameDifficulty difficulty, bool onnamusha)
     {
-        if (!ReverseSpeedrunModeState.BeginRun(onnamusha))
+        if (!ReverseSpeedrunModeState.BeginRun(__instance, difficulty, onnamusha))
         {
             return true;
         }
@@ -593,7 +716,7 @@ internal static class GlobalGameManagerStartFakeSpeedrunPatch
 {
     private static bool Prefix(GlobalGameManager __instance, GameDifficulty difficulty, bool onnamusha)
     {
-        if (!ReverseSpeedrunModeState.BeginRun(onnamusha))
+        if (!ReverseSpeedrunModeState.BeginRun(__instance, difficulty, onnamusha))
         {
             return true;
         }
@@ -607,7 +730,7 @@ internal static class GlobalGameManagerGoToNextLevelPatch
 {
     private static bool Prefix(GlobalGameManager __instance)
     {
-        if (!ReverseSpeedrunModeState.ReverseRunActive || __instance.CurrentGameMode != GameMode.Speedrun)
+        if (!ReverseSpeedrunModeState.CustomRunActive || __instance.CurrentGameMode != GameMode.Speedrun)
         {
             return true;
         }
@@ -628,7 +751,7 @@ internal static class EndLevelSpeedrunOpenPatch
 
         GlobalGameManager manager = UnitySingleton<GlobalGameManager>.Instance;
         GameDataInfo currentGameData = manager.CurrentGameData;
-        if (!ReverseSpeedrunModeState.ReverseRunActive || manager.CurrentGameMode != GameMode.Speedrun || currentGameData == null)
+        if (!ReverseSpeedrunModeState.CustomRunActive || manager.CurrentGameMode != GameMode.Speedrun || currentGameData == null)
         {
             return;
         }
@@ -650,7 +773,7 @@ internal static class GlobalSpeedrunDataTimeToLevelPatch
 {
     private static bool Prefix(GlobalSpeedrunData __instance, string level, ref float __result)
     {
-        if (!ReverseSpeedrunModeState.ReverseRunActive || !UnitySingleton<GlobalGameManager>.IsAvailable() || UnitySingleton<GlobalGameManager>.Instance.CurrentGameMode != GameMode.Speedrun)
+        if (!ReverseSpeedrunModeState.CustomRunActive || !UnitySingleton<GlobalGameManager>.IsAvailable() || UnitySingleton<GlobalGameManager>.Instance.CurrentGameMode != GameMode.Speedrun)
         {
             return true;
         }
@@ -665,7 +788,7 @@ internal static class GlobalSpeedrunDataHitsToLevelPatch
 {
     private static bool Prefix(GlobalSpeedrunData __instance, string level, ref int __result)
     {
-        if (!ReverseSpeedrunModeState.ReverseRunActive || !UnitySingleton<GlobalGameManager>.IsAvailable() || UnitySingleton<GlobalGameManager>.Instance.CurrentGameMode != GameMode.Speedrun)
+        if (!ReverseSpeedrunModeState.CustomRunActive || !UnitySingleton<GlobalGameManager>.IsAvailable() || UnitySingleton<GlobalGameManager>.Instance.CurrentGameMode != GameMode.Speedrun)
         {
             return true;
         }
@@ -680,7 +803,7 @@ internal static class GlobalSpeedrunDataKoToLevelPatch
 {
     private static bool Prefix(GlobalSpeedrunData __instance, string level, ref int __result)
     {
-        if (!ReverseSpeedrunModeState.ReverseRunActive || !UnitySingleton<GlobalGameManager>.IsAvailable() || UnitySingleton<GlobalGameManager>.Instance.CurrentGameMode != GameMode.Speedrun)
+        if (!ReverseSpeedrunModeState.CustomRunActive || !UnitySingleton<GlobalGameManager>.IsAvailable() || UnitySingleton<GlobalGameManager>.Instance.CurrentGameMode != GameMode.Speedrun)
         {
             return true;
         }
@@ -695,12 +818,12 @@ internal static class GlobalGameDataInfoHasSpeedrunDifficultyPatch
 {
     private static bool Prefix(GameDifficulty gameDifficulty, bool onnamusha, ref bool __result)
     {
-        if (!ReverseSpeedrunModeState.ReverseRunActive)
+        if (!ReverseSpeedrunModeState.CustomRunActive)
         {
             return true;
         }
 
-        __result = ReverseSpeedrunRecords.Has(gameDifficulty, onnamusha);
+        __result = CustomSpeedrunRecords.Has(gameDifficulty, onnamusha);
         return false;
     }
 }
@@ -710,12 +833,12 @@ internal static class GlobalGameDataInfoGetSpeedrunPatch
 {
     private static bool Prefix(GameDifficulty gameDifficulty, bool onnamusha, ref GlobalSpeedrunData __result)
     {
-        if (!ReverseSpeedrunModeState.ReverseRunActive)
+        if (!ReverseSpeedrunModeState.CustomRunActive)
         {
             return true;
         }
 
-        __result = ReverseSpeedrunRecords.Get(gameDifficulty, onnamusha) ?? new GlobalSpeedrunData();
+        __result = CustomSpeedrunRecords.Get(gameDifficulty, onnamusha) ?? new GlobalSpeedrunData();
         return false;
     }
 }
@@ -725,12 +848,12 @@ internal static class GlobalGameDataInfoAddSpeedrunPatch
 {
     private static bool Prefix(GameDifficulty gameDifficulty, bool onnamusha, GlobalSpeedrunData speedrunData)
     {
-        if (!ReverseSpeedrunModeState.ReverseRunActive)
+        if (!ReverseSpeedrunModeState.CustomRunActive)
         {
             return true;
         }
 
-        ReverseSpeedrunRecords.Set(gameDifficulty, onnamusha, speedrunData);
+        CustomSpeedrunRecords.Set(gameDifficulty, onnamusha, speedrunData);
         return false;
     }
 }
@@ -740,12 +863,12 @@ internal static class GlobalGameDataInfoSetSpeedrunPatch
 {
     private static bool Prefix(GameDifficulty gameDifficulty, bool onnamusha, GlobalSpeedrunData speedrunData)
     {
-        if (!ReverseSpeedrunModeState.ReverseRunActive)
+        if (!ReverseSpeedrunModeState.CustomRunActive)
         {
             return true;
         }
 
-        ReverseSpeedrunRecords.Set(gameDifficulty, onnamusha, speedrunData);
+        CustomSpeedrunRecords.Set(gameDifficulty, onnamusha, speedrunData);
         return false;
     }
 }
@@ -755,7 +878,7 @@ internal static class GlobalGameManagerTryToReportEndSpeedRunScoresPatch
 {
     private static bool Prefix()
     {
-        if (!ReverseSpeedrunModeState.ReverseRunActive)
+        if (!ReverseSpeedrunModeState.CustomRunActive)
         {
             return true;
         }
@@ -770,7 +893,7 @@ internal static class GlobalGameManagerFinishSpeedrunPatch
 {
     private static void Postfix()
     {
-        if (!ReverseSpeedrunModeState.ReverseRunActive)
+        if (!ReverseSpeedrunModeState.CustomRunActive)
         {
             return;
         }
@@ -786,7 +909,7 @@ internal static class FinalSpeedrunMenuStartPatch
 {
     private static void Postfix(FinalSpeedrunMenu __instance)
     {
-        if (!ReverseSpeedrunModeState.ReverseRunActive || __instance._scoreSubmissionStateText == null)
+        if (!ReverseSpeedrunModeState.CustomRunActive || __instance._scoreSubmissionStateText == null)
         {
             return;
         }
@@ -795,7 +918,7 @@ internal static class FinalSpeedrunMenuStartPatch
         Text text = __instance._scoreSubmissionStateText.GetComponent<Text>();
         if (text != null)
         {
-            text.text = "Reverse mode: local record only";
+            text.text = "Custom order: local record only";
         }
     }
 }

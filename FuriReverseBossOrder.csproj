@@ -22,6 +22,9 @@
   <Reference Include="UnityEngine.CoreModule">
     <HintPath>../refs/UnityEngine.CoreModule.dll</HintPath>
   </Reference>
+  <Reference Include="UnityEngine.UI">
+    <HintPath>../refs/UnityEngine.UI.dll</HintPath>
+  </Reference>
 </ItemGroup>
 
 </Project>

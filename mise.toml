@@ -1,0 +1,9 @@
+[tools]
+dotnet = "latest"
+
+[tasks.deploy]
+description = "Build the mod and copy it into Furi's BepInEx plugins folder"
+run = [
+  "dotnet build FuriReverseBossOrder.csproj",
+  "cp -f bin/Debug/netstandard2.0/FuriReverseBossOrder.dll ~/.local/share/Steam/steamapps/common/Furi/BepInEx/plugins/FuriReverseBossOrder/"
+]

@@ -14,3 +14,4 @@
 /var/home/cmnemoi/code/furi-modding/FuriReverseBossOrder/obj/Debug/netstandard2.0/FuriReve.57C20ADC.Up2Date
 /var/home/cmnemoi/code/furi-modding/FuriReverseBossOrder/obj/Debug/netstandard2.0/FuriReverseBossOrder.dll
 /var/home/cmnemoi/code/furi-modding/FuriReverseBossOrder/obj/Debug/netstandard2.0/FuriReverseBossOrder.pdb
+/var/home/cmnemoi/code/furi-modding/FuriReverseBossOrder/bin/Debug/netstandard2.0/UnityEngine.UI.dll

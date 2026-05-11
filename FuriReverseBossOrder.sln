@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FuriReverseBossOrder", "FuriReverseBossOrder.csproj", "{C779D5C7-6F6A-EDB0-AB97-7D77DFB0F82E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C779D5C7-6F6A-EDB0-AB97-7D77DFB0F82E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C779D5C7-6F6A-EDB0-AB97-7D77DFB0F82E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C779D5C7-6F6A-EDB0-AB97-7D77DFB0F82E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C779D5C7-6F6A-EDB0-AB97-7D77DFB0F82E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {BFAC9C6E-8575-4DCE-9E7C-701F003AC0ED}
+	EndGlobalSection
+EndGlobal

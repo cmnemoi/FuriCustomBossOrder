@@ -8,22 +8,22 @@
   </PropertyGroup>
   <ItemGroup>
   <Reference Include="BepInEx">
-    <HintPath>../refs/BepInEx.dll</HintPath>
+    <HintPath>lib/BepInEx.dll</HintPath>
   </Reference>
   <Reference Include="0Harmony">
-    <HintPath>../refs/0Harmony.dll</HintPath>
+    <HintPath>lib/0Harmony.dll</HintPath>
   </Reference>
   <Reference Include="Assembly-CSharp">
-    <HintPath>../refs/Assembly-CSharp.dll</HintPath>
+    <HintPath>lib/Assembly-CSharp.dll</HintPath>
   </Reference>
   <Reference Include="UnityEngine">
-    <HintPath>../refs/UnityEngine.dll</HintPath>
+    <HintPath>lib/UnityEngine.dll</HintPath>
   </Reference>
   <Reference Include="UnityEngine.CoreModule">
-    <HintPath>../refs/UnityEngine.CoreModule.dll</HintPath>
+    <HintPath>lib/UnityEngine.CoreModule.dll</HintPath>
   </Reference>
   <Reference Include="UnityEngine.UI">
-    <HintPath>../refs/UnityEngine.UI.dll</HintPath>
+    <HintPath>lib/UnityEngine.UI.dll</HintPath>
   </Reference>
 </ItemGroup>
 

@@ -1,0 +1,27 @@
+{
+    "restoreTerminals.terminals": [
+        {
+            "splitTerminals": [
+                {
+                    "name": "root",
+                },
+            ]
+        },
+        {
+            "splitTerminals": [
+                {
+                    "name": "watch:furi",
+                    "commands": ["tail -f ~/.local/share/Steam/steamapps/common/Furi/BepInEx/LogOutput.log"]
+                },
+            ]
+        },
+        {
+            "splitTerminals": [
+                {
+                    "name": "opencode",
+                    "commands": ["opencode"]
+                },
+            ]
+        }
+    ]
+}

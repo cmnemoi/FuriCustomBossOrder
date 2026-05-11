@@ -13,7 +13,7 @@ This mod has been tested with the latest version of **Furi**. Use it at your own
 
 ## Installation
 
-1. Install **BepInEx** into your **Furi** folder (usually  `C:\Program Files (x86)\Steam\steamapps\common\Furi\BepInEx\plugins\FuriReverseBossOrder\`). Instructions [here](https://docs.bepinex.dev/articles/user_guide/installation/index.html).
+1. Install **BepInEx** into your **Furi** folder (usually  `C:\Program Files (x86)\Steam\steamapps\common\Furi\`). Instructions [here](https://docs.bepinex.dev/articles/user_guide/installation/index.html).
 2. Download `FuriReverseBossOrder.dll` from the [GitHub Releases](../../releases) page.
 3. Copy `FuriReverseBossOrder.dll` to your Furi folder in a dedicated folder (e.g. `[Furi folder]\BepInEx\plugins\FuriReverseBossOrder\`).
 4. Launch the game.

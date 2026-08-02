@@ -4,7 +4,7 @@ using HarmonyLib;
 using UnityEngine;
 using UnityEngine.UI;
 
-[BepInPlugin("evian.furi.reversebossorder", "Furi Reverse Boss Order", "1.0.0")] // x-release-please-version
+[BepInPlugin("evian.furi.reversebossorder", "Furi Reverse Boss Order", "1.1.0")] // x-release-please-version
 [BepInDependency(PromenadeCompatibility.PluginGuid, BepInDependency.DependencyFlags.SoftDependency)]
 public class Plugin : BaseUnityPlugin
 {

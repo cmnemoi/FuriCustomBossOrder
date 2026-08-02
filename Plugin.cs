@@ -5,12 +5,26 @@ using UnityEngine;
 using UnityEngine.UI;
 
 [BepInPlugin("evian.furi.reversebossorder", "Furi Reverse Boss Order", "0.1.0")]
+[BepInDependency(PromenadeCompatibility.PluginGuid, BepInDependency.DependencyFlags.SoftDependency)]
 public class Plugin : BaseUnityPlugin
 {
     private void Awake()
     {
         new Harmony("evian.furi.reversebossorder").PatchAll();
         Logger.LogInfo("Furi Reverse Boss Order loaded.");
+    }
+}
+
+internal static class PromenadeCompatibility
+{
+    internal const string PluginGuid = "com.cmnemoi.furi.promenadespeedrunmode";
+
+    internal static bool IsCustomEasyRun()
+    {
+        return ReverseSpeedrunModeState.CustomRunActive
+            && UnitySingleton<GlobalGameManager>.IsAvailable()
+            && UnitySingleton<GlobalGameManager>.Instance.CurrentGameData != null
+            && UnitySingleton<GlobalGameManager>.Instance.CurrentGameData._gameDifficulty == GameDifficulty.Easy;
     }
 }
 
@@ -324,15 +338,17 @@ internal static class ReverseSpeedrunModeState
 
     private static bool IsLevelInSpeedrun(LevelDescription level, GameDifficulty difficulty)
     {
-        if (level == null)
-        {
-            return false;
-        }
+        return level != null && IsDifficultyEligible(level._speedrunAvailable, level._speedrunFurierAvailable, difficulty);
+    }
 
+    // @spec promenade-custom-orders::medium-boss-pool
+    private static bool IsDifficultyEligible(bool speedrunAvailable, bool speedrunFurierAvailable, GameDifficulty difficulty)
+    {
         return difficulty switch
         {
-            GameDifficulty.Medium => level._speedrunAvailable,
-            GameDifficulty.Hard => level._speedrunFurierAvailable,
+            GameDifficulty.Easy => speedrunAvailable,
+            GameDifficulty.Medium => speedrunAvailable,
+            GameDifficulty.Hard => speedrunFurierAvailable,
             _ => false,
         };
     }
@@ -723,6 +739,7 @@ internal static class GlobalGameManagerStartFakeSpeedrunPatch
 }
 
 [HarmonyPatch(typeof(GlobalGameManager), nameof(GlobalGameManager.GoToNextLevel))]
+[HarmonyBefore(PromenadeCompatibility.PluginGuid)]
 internal static class GlobalGameManagerGoToNextLevelPatch
 {
     private static bool Prefix(GlobalGameManager __instance)
@@ -737,6 +754,7 @@ internal static class GlobalGameManagerGoToNextLevelPatch
 }
 
 [HarmonyPatch(typeof(EndLevelSpeedrun), nameof(EndLevelSpeedrun.Open))]
+[HarmonyAfter(PromenadeCompatibility.PluginGuid)]
 internal static class EndLevelSpeedrunOpenPatch
 {
     private static void Postfix(EndLevelSpeedrun __instance)
@@ -811,6 +829,7 @@ internal static class GlobalSpeedrunDataKoToLevelPatch
 }
 
 [HarmonyPatch(typeof(GlobalGameDataInfo), nameof(GlobalGameDataInfo.HasSpeedrunDifficulty))]
+[HarmonyBefore(PromenadeCompatibility.PluginGuid)]
 internal static class GlobalGameDataInfoHasSpeedrunDifficultyPatch
 {
     private static bool Prefix(GameDifficulty gameDifficulty, bool onnamusha, ref bool __result)
@@ -826,6 +845,7 @@ internal static class GlobalGameDataInfoHasSpeedrunDifficultyPatch
 }
 
 [HarmonyPatch(typeof(GlobalGameDataInfo), nameof(GlobalGameDataInfo.GetSpeedrun))]
+[HarmonyBefore(PromenadeCompatibility.PluginGuid)]
 internal static class GlobalGameDataInfoGetSpeedrunPatch
 {
     private static bool Prefix(GameDifficulty gameDifficulty, bool onnamusha, ref GlobalSpeedrunData __result)
@@ -885,6 +905,49 @@ internal static class GlobalGameManagerTryToReportEndSpeedRunScoresPatch
     }
 }
 
+[HarmonyPatch(typeof(GlobalGameManager), nameof(GlobalGameManager.FinishStory), typeof(GameEnding))]
+internal static class GlobalGameManagerFinishStoryPatch
+{
+    // @spec promenade-custom-orders::record-isolation
+    private static void Prefix(GlobalGameManager __instance)
+    {
+        GameDataInfo game = __instance.CurrentGameData;
+        if (ReverseSpeedrunModeState.CustomRunActive && game != null && game._gameDifficulty == GameDifficulty.Easy)
+        {
+            CustomSpeedrunRecords.Set(game._gameDifficulty, game._onnamusha, game._currentSpeedrunData);
+        }
+    }
+}
+
+[HarmonyPatch]
+internal static class PromenadeRecordCompletedRunExecutePatch
+{
+    [HarmonyPrepare]
+    private static bool Prepare()
+    {
+        return AccessTools.TypeByName("PromenadeSpeedrunMode.RecordCompletedRun") != null;
+    }
+
+    [HarmonyTargetMethod]
+    private static System.Reflection.MethodBase TargetMethod()
+    {
+        return AccessTools.Method(AccessTools.TypeByName("PromenadeSpeedrunMode.RecordCompletedRun"), "Execute");
+    }
+
+    // @spec promenade-custom-orders::record-isolation
+    [HarmonyPrefix]
+    private static bool Prefix(ref bool __result)
+    {
+        if (!PromenadeCompatibility.IsCustomEasyRun())
+        {
+            return true;
+        }
+
+        __result = false;
+        return false;
+    }
+}
+
 [HarmonyPatch(typeof(GlobalGameManager), nameof(GlobalGameManager.FinishSpeedrun))]
 internal static class GlobalGameManagerFinishSpeedrunPatch
 {
@@ -902,6 +965,7 @@ internal static class GlobalGameManagerFinishSpeedrunPatch
 }
 
 [HarmonyPatch(typeof(FinalSpeedrunMenu), "Start")]
+[HarmonyAfter(PromenadeCompatibility.PluginGuid)]
 internal static class FinalSpeedrunMenuStartPatch
 {
     private static void Postfix(FinalSpeedrunMenu __instance)

@@ -208,3 +208,5 @@ FakesAssemblies/
 
 # JetBrains Rider
 *.sln.iml
+
+furi-source-code

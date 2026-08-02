@@ -1,0 +1,42 @@
+name: Continuous Delivery
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    name: Build and release mod
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        name: Create release PR
+        with:
+          release-type: simple
+
+      - uses: actions/checkout@v4
+        name: Checkout
+        if: steps.release.outputs.release_created
+
+      - uses: actions/setup-dotnet@v4
+        name: Setup .NET
+        if: steps.release.outputs.release_created
+        with:
+          dotnet-version: "10.x"
+
+      - name: Build
+        if: steps.release.outputs.release_created
+        run: dotnet build FuriReverseBossOrder.csproj -c Release
+
+      - name: Upload mod
+        if: steps.release.outputs.release_created
+        run: >
+          gh release upload "${{ steps.release.outputs.tag_name }}"
+          bin/Release/netstandard2.0/FuriReverseBossOrder.dll
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
